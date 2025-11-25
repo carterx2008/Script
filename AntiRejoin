@@ -1,0 +1,215 @@
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AntiRejoinNotification"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+if LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("AntiRejoinNotification") then
+    LocalPlayer.PlayerGui.AntiRejoinNotification:Destroy()
+end
+
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local notificationFrame = Instance.new("Frame")
+notificationFrame.Name = "NotificationFrame"
+notificationFrame.Size = UDim2.new(0, 0, 0, 65)
+notificationFrame.Position = UDim2.new(1, -20, 1, -85)
+notificationFrame.AnchorPoint = Vector2.new(1, 0)
+notificationFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+notificationFrame.BackgroundTransparency = 0.15
+notificationFrame.BorderSizePixel = 0
+notificationFrame.ClipsDescendants = true
+notificationFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = notificationFrame
+
+local borderFrame = Instance.new("Frame")
+borderFrame.Name = "BorderFrame"
+borderFrame.Size = UDim2.new(1, 0, 1, 0)
+borderFrame.BackgroundTransparency = 1
+borderFrame.Parent = notificationFrame
+
+local borderStroke = Instance.new("UIStroke")
+borderStroke.Color = Color3.fromRGB(100, 255, 180)
+borderStroke.Thickness = 2
+borderStroke.Transparency = 0
+borderStroke.Parent = borderFrame
+
+local borderGradient = Instance.new("UIGradient")
+borderGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 180)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 200, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 255, 180))
+}
+borderGradient.Rotation = 0
+borderGradient.Parent = borderStroke
+
+local iconBg = Instance.new("Frame")
+iconBg.Name = "IconBg"
+iconBg.Size = UDim2.new(0, 40, 0, 40)
+iconBg.Position = UDim2.new(0, 12, 0.5, -20)
+iconBg.BackgroundColor3 = Color3.fromRGB(100, 255, 180)
+iconBg.BorderSizePixel = 0
+iconBg.Parent = notificationFrame
+
+local iconBgCorner = Instance.new("UICorner")
+iconBgCorner.CornerRadius = UDim.new(1, 0)
+iconBgCorner.Parent = iconBg
+
+local iconGradient = Instance.new("UIGradient")
+iconGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 180)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 200, 255))
+}
+iconGradient.Rotation = 135
+iconGradient.Parent = iconBg
+
+local iconText = Instance.new("TextLabel")
+iconText.Size = UDim2.new(1, 0, 1, 0)
+iconText.BackgroundTransparency = 1
+iconText.Text = "✓"
+iconText.TextSize = 22
+iconText.Font = Enum.Font.GothamBold
+iconText.TextColor3 = Color3.fromRGB(15, 15, 25)
+iconText.Parent = iconBg
+
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, -65, 1, 0)
+contentFrame.Position = UDim2.new(0, 60, 0, 0)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = notificationFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 22)
+titleLabel.Position = UDim2.new(0, 0, 0, 10)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Bypass Rejoin Is Active"
+titleLabel.TextSize = 13
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.TextTransparency = 1
+titleLabel.Parent = contentFrame
+
+local subtitleLabel = Instance.new("TextLabel")
+subtitleLabel.Size = UDim2.new(1, 0, 0, 18)
+subtitleLabel.Position = UDim2.new(0, 0, 0, 30)
+subtitleLabel.BackgroundTransparency = 1
+subtitleLabel.Text = "Protection enabled"
+subtitleLabel.TextSize = 10
+subtitleLabel.Font = Enum.Font.Gotham
+subtitleLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
+subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+subtitleLabel.TextTransparency = 1
+subtitleLabel.Parent = contentFrame
+
+local progressContainer = Instance.new("Frame")
+progressContainer.Size = UDim2.new(1, -24, 0, 3)
+progressContainer.Position = UDim2.new(0, 12, 1, -8)
+progressContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+progressContainer.BorderSizePixel = 0
+progressContainer.Parent = notificationFrame
+
+local progressCorner = Instance.new("UICorner")
+progressCorner.CornerRadius = UDim.new(1, 0)
+progressCorner.Parent = progressContainer
+
+local progressFill = Instance.new("Frame")
+progressFill.Size = UDim2.new(1, 0, 1, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(100, 255, 180)
+progressFill.BorderSizePixel = 0
+progressFill.Parent = progressContainer
+
+local progressFillCorner = Instance.new("UICorner")
+progressFillCorner.CornerRadius = UDim.new(1, 0)
+progressFillCorner.Parent = progressFill
+
+local progressGradient = Instance.new("UIGradient")
+progressGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 180)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 200, 255))
+}
+progressGradient.Parent = progressFill
+
+local expandWidth = TweenService:Create(
+    notificationFrame,
+    TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    {Size = UDim2.new(0, 260, 0, 65)}
+)
+
+local fadeTitle = TweenService:Create(
+    titleLabel,
+    TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    {TextTransparency = 0}
+)
+
+local fadeSubtitle = TweenService:Create(
+    subtitleLabel,
+    TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    {TextTransparency = 0}
+)
+
+local iconPop = TweenService:Create(
+    iconBg,
+    TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    {Size = UDim2.new(0, 40, 0, 40)}
+)
+
+local rotateBorder = TweenService:Create(
+    borderGradient,
+    TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1),
+    {Rotation = 360}
+)
+
+local progressTween = TweenService:Create(
+    progressFill,
+    TweenInfo.new(4.5, Enum.EasingStyle.Linear),
+    {Size = UDim2.new(0, 0, 1, 0)}
+)
+
+local slideOut = TweenService:Create(
+    notificationFrame,
+    TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+    {
+        Position = UDim2.new(1, 50, 1, -85),
+        Size = UDim2.new(0, 0, 0, 65)
+    }
+)
+
+iconBg.Size = UDim2.new(0, 0, 0, 0)
+
+expandWidth:Play()
+task.wait(0.3)
+
+iconPop:Play()
+rotateBorder:Play()
+
+task.wait(0.2)
+fadeTitle:Play()
+task.wait(0.1)
+fadeSubtitle:Play()
+progressTween:Play()
+
+task.wait(4.5)
+
+local fadeOutTitle = TweenService:Create(titleLabel, TweenInfo.new(0.3), {TextTransparency = 1})
+local fadeOutSubtitle = TweenService:Create(subtitleLabel, TweenInfo.new(0.3), {TextTransparency = 1})
+local fadeOutIcon = TweenService:Create(iconText, TweenInfo.new(0.3), {TextTransparency = 1})
+
+fadeOutTitle:Play()
+fadeOutSubtitle:Play()
+fadeOutIcon:Play()
+
+task.wait(0.3)
+
+rotateBorder:Cancel()
+slideOut:Play()
+
+slideOut.Completed:Connect(function()
+    screenGui:Destroy()
+end)
