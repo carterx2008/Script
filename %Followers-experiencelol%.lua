@@ -22,6 +22,7 @@ local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local Workspace = game:GetService("Workspace")
 
 local scriptRunning = true 
 local Connections = {} 
@@ -41,7 +42,7 @@ local selectedTask = "Followers"
 local selectedReaction = "none"
 local targetInput = ""
 local autoGet = false
-local getSpeed = 15
+local getSpeed = 30 
 local autoDropAll = false
 local dropFixedDefault = false
 local dropFixedCustom = false
@@ -51,11 +52,14 @@ local destroyThreshold = 1000
 local customX, customY, customZ = 0, 0, 0
 local totalGot, totalDropped = 0, 0
 
+local dropMultiPosition = false
+local dropMultiBatchSize = 15
+local currentCoordIndex = 1
+
 local hitboxEnabled = false
 local currentHitboxSize = 8
 local ToolName = "Sword"
 
--- Biến cho Player Tab
 local wsEnabled = false
 local wsValue = 16
 local infJumpEnabled = false
@@ -72,6 +76,23 @@ local randomDropPositions = {
     CFrame.new(-105.89, 699.22, 132.59)  
 }
 
+local dropCoords = {
+    Vector3.new(-143.10, 475.24, 272.96), Vector3.new(-142.68, 475.24, 242.96), Vector3.new(-142.25, 475.24, 212.97),
+    Vector3.new(-141.82, 475.24, 182.97), Vector3.new(-141.39, 475.24, 152.97), Vector3.new(-140.96, 475.24, 122.98),
+    Vector3.new(-140.54, 475.24, 92.98), Vector3.new(-140.11, 475.24, 62.98), Vector3.new(-185.10, 475.24, 62.34),
+    Vector3.new(-230.10, 475.24, 61.70), Vector3.new(-275.09, 475.24, 61.06), Vector3.new(-275.74, 475.24, 106.05),
+    Vector3.new(-109.90, 475.24, 48.41), Vector3.new(-64.90, 475.24, 49.05), Vector3.new(-19.91, 475.24, 49.70),
+    Vector3.new(25.09, 475.24, 50.34), Vector3.new(70.08, 475.24, 50.98), Vector3.new(130.08, 475.24, 51.84),
+    Vector3.new(129.44, 475.24, 96.83), Vector3.new(84.44, 475.24, 96.19), Vector3.new(24.45, 475.24, 95.33),
+    Vector3.new(-35.55, 475.24, 94.48), Vector3.new(-80.97, 475.24, 123.83), Vector3.new(-81.61, 475.24, 168.83),
+    Vector3.new(-82.25, 475.24, 213.82), Vector3.new(-82.90, 475.24, 258.82), Vector3.new(-79.26, 475.24, 3.85),
+    Vector3.new(-139.25, 475.24, 2.99), Vector3.new(-153.82, 475.24, -27.22), Vector3.new(-213.82, 475.24, -28.08),
+    Vector3.new(-243.81, 475.24, -28.51), Vector3.new(-243.17, 475.24, -73.50), Vector3.new(-138.18, 475.24, -72.00),
+    Vector3.new(-137.54, 475.24, -117.00), Vector3.new(-137.11, 475.24, -147.00), Vector3.new(-48.41, 475.24, -55.72),
+    Vector3.new(-3.41, 475.24, -55.08), Vector3.new(26.59, 475.24, -54.65), Vector3.new(-22.26, 475.24, 214.68),
+    Vector3.new(7.74, 475.24, 215.11), Vector3.new(37.73, 475.24, 215.54), Vector3.new(82.73, 475.24, 216.18)
+}
+
 local ActivateMainTask 
 
 local MainTab = Window:CreateTab("Main", "home") 
@@ -81,14 +102,11 @@ local StatsTab = Window:CreateTab("Info", "bar-chart")
 local PlayerTab = Window:CreateTab("Player", "user")
 local ConfigTab = Window:CreateTab("Config", "settings") 
 
--- Hệ thống chạy ngầm: NoGameplayPaused
 task.spawn(function()
     while scriptRunning do
         local success, err = pcall(function()
             local pauseGui = game:GetService("CoreGui").RobloxGui:FindFirstChild("CoreScripts/NetworkPause")
-            if pauseGui then
-                pauseGui:Destroy()
-            end
+            if pauseGui then pauseGui:Destroy() end
         end)
         task.wait(1)
     end
@@ -156,18 +174,22 @@ table.insert(Connections, TeleportService.TeleportInitFailed:Connect(function(pl
     end
 end))
 
-local function bindBackpack()
-    local backpack = player:WaitForChild("Backpack", 5)
-    if backpack then
-        table.insert(Connections, backpack.ChildAdded:Connect(function(child)
-            if child:IsA("Tool") then
-                totalGot = totalGot + 1
-                StatsGotLabel:Set("Total Tools Gathered: " .. tostring(totalGot))
-            end
-        end))
+local function onToolAdded(child)
+    if child:IsA("Tool") and not child:GetAttribute("Counted") then
+        child:SetAttribute("Counted", true)
+        totalGot = totalGot + 1
+        StatsGotLabel:Set("Total Tools Gathered: " .. tostring(totalGot))
     end
 end
-table.insert(Connections, player.CharacterAdded:Connect(bindBackpack))
+
+local function bindBackpack()
+    local backpack = player:WaitForChild("Backpack", 5)
+    if backpack then table.insert(Connections, backpack.ChildAdded:Connect(onToolAdded)) end
+    local char = player.Character
+    if char then table.insert(Connections, char.ChildAdded:Connect(onToolAdded)) end
+end
+
+table.insert(Connections, player.CharacterAdded:Connect(function(char) bindBackpack() end))
 bindBackpack()
 
 MainTab:CreateSection("Panel Configuration")
@@ -334,9 +356,7 @@ end
 
 MainTab:CreateButton({
     Name = "Tap To Save And Auto Activate",
-    Callback = function()
-        ActivateMainTask()
-    end,
+    Callback = function() ActivateMainTask() end,
 })
 
 MainTab:CreateSection("Information")
@@ -355,10 +375,10 @@ local UI_Toggle_AutoGet = TrollTab:CreateToggle({
 
 local UI_Slider_Speed = TrollTab:CreateSlider({
    Name = "Tool Grab Speed",
-   Range = {5, 100},
+   Range = {5, 150}, 
    Increment = 1,
    Suffix = "Tools/s",
-   CurrentValue = 15,
+   CurrentValue = 30, 
    Flag = "SpeedSlider",
    Callback = function(Value) getSpeed = Value end,
 })
@@ -370,11 +390,31 @@ local UI_Toggle_AutoDrop = TrollTab:CreateToggle({
    Callback = function(Value) autoDropAll = Value end,
 })
 
+TrollTab:CreateSection("Multi Drop Settings")
+
+local UI_Toggle_MultiDrop = TrollTab:CreateToggle({
+   Name = "Multi Position Drop",
+   CurrentValue = false,
+   Flag = "MultiPositionDrop",
+   Callback = function(Value) dropMultiPosition = Value end,
+})
+TrollTab:CreateLabel("Note: This feature will scatter tools all around the map, very OP. You can adjust how many tools to drop instantly per batch as you like.")
+
+local UI_Slider_MultiBatch = TrollTab:CreateSlider({
+   Name = "Drop Tools Per Batch",
+   Range = {5, 50},
+   Increment = 1,
+   Suffix = "Tools",
+   CurrentValue = 15,
+   Flag = "MultiBatchSlider",
+   Callback = function(Value) dropMultiBatchSize = Value end,
+})
+
 TrollTab:CreateSection("Drop Position Settings")
 local UI_Toggle_DropDefault, UI_Toggle_DropCustom
 
 UI_Toggle_DropDefault = TrollTab:CreateToggle({
-   Name = "Drop At Random Positions (Default)",
+   Name = "Drop At Default Position",
    CurrentValue = false,
    Flag = "DropFixedDefault",
    Callback = function(Value)
@@ -382,18 +422,7 @@ UI_Toggle_DropDefault = TrollTab:CreateToggle({
       if Value and UI_Toggle_DropCustom then UI_Toggle_DropCustom:Set(false) end
    end,
 })
-
-local UI_Slider_DropThresh = TrollTab:CreateSlider({
-   Name = "Drop When Inventory Is Full",
-   Range = {50, 1000},
-   Increment = 10,
-   Suffix = "Tools",
-   CurrentValue = 300,
-   Flag = "DropThresholdSlider",
-   Callback = function(Value) dropThreshold = Value end,
-})
-
-TrollTab:CreateLabel("Note: Only applies when Random or Custom Position drop is enabled.")
+TrollTab:CreateLabel("Note: Unlike the Multi Drop mechanism, this Default Drop will drop a large number of tools all at once randomly at 4 points around the spawn point, causing lag for players gathered there.")
 
 UI_Toggle_DropCustom = TrollTab:CreateToggle({
    Name = "Drop At Custom Position",
@@ -416,6 +445,20 @@ local UI_Input_CustomPos = TrollTab:CreateInput({
    end,
 })
 
+TrollTab:CreateSection("Drop Threshold Settings")
+
+local UI_Slider_DropThresh = TrollTab:CreateSlider({
+   Name = "Drop When Inventory Is Full",
+   Range = {50, 1000},
+   Increment = 10,
+   Suffix = "Tools",
+   CurrentValue = 300,
+   Flag = "DropThresholdSlider",
+   Callback = function(Value) dropThreshold = Value end,
+})
+
+TrollTab:CreateLabel("Note: Only applies when Random or Custom Position drop is enabled.")
+
 TrollTab:CreateSection("Optimization")
 TrollTab:CreateButton({
    Name = "Destroy Dropped Tools (Fix Lag)",
@@ -428,7 +471,8 @@ TrollTab:CreateButton({
           end
       end
       if deletedCount > 0 then
-          Rayfield:Notify({Title = "Cleanup Complete", Content = "Destroyed " .. tostring(deletedCount) .. " tools.", Duration = 3})
+          PlaySound("90420386076500")
+          Rayfield:Notify({Title = "Cleanup Complete", Content = "Destroyed " .. tostring(deletedCount) .. " tools.", Duration = 3, Image = "trash"}) 
       end
    end,
 })
@@ -475,7 +519,7 @@ TrollTab:CreateButton({
 
 local displayJobId = (oldJobId ~= "") and oldJobId or "None"
 TrollTab:CreateLabel("Previous Server Job-ID: " .. displayJobId)
-TrollTab:CreateLabel("Note: Rejoin the old server to see what you have done or are doing that crashed midway.")
+TrollTab:CreateLabel("Note: Rejoin the old server to see what you have done or if you crashed midway.")
 
 PVPTab:CreateSection("PVP Enhancement")
 local UI_Toggle_Hitbox = PVPTab:CreateToggle({
@@ -601,24 +645,16 @@ end
 local function showObject(desc)
     if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
         local orig = desc:GetAttribute("OriginalTransparency")
-        if orig then
-            desc.Transparency = orig
-        end
+        if orig then desc.Transparency = orig end
     elseif desc:IsA("BillboardGui") or desc:IsA("SurfaceGui") or desc:IsA("ParticleEmitter") or desc:IsA("Trail") or desc:IsA("Beam") or desc:IsA("Fire") or desc:IsA("Sparkles") or desc:IsA("Light") or desc:IsA("Highlight") then
         local orig = desc:GetAttribute("OriginalEnabled")
-        if orig ~= nil then
-            desc.Enabled = orig
-        end
+        if orig ~= nil then desc.Enabled = orig end
     end
 end
 
 local function handleCharacterHide(character)
     if not hidePlayersEnabled then return end
-    
-    for _, desc in pairs(character:GetDescendants()) do
-        hideObject(desc)
-    end
-    
+    for _, desc in pairs(character:GetDescendants()) do hideObject(desc) end
     local conn = character.DescendantAdded:Connect(function(desc)
         if hidePlayersEnabled then
             task.delay(0.05, function() 
@@ -637,24 +673,16 @@ local UI_Toggle_HidePlayers = PlayerTab:CreateToggle({
         hidePlayersEnabled = Value
         if Value then
             for _, p in pairs(Players:GetPlayers()) do
-                if p ~= player and p.Character then
-                    handleCharacterHide(p.Character)
-                end
+                if p ~= player and p.Character then handleCharacterHide(p.Character) end
             end
-            
             local conn1 = Players.PlayerAdded:Connect(function(newPlayer)
-                local conn2 = newPlayer.CharacterAdded:Connect(function(char)
-                    handleCharacterHide(char)
-                end)
+                local conn2 = newPlayer.CharacterAdded:Connect(function(char) handleCharacterHide(char) end)
                 table.insert(HidePlayerConnections, conn2)
             end)
             table.insert(HidePlayerConnections, conn1)
-            
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= player then
-                    local conn3 = p.CharacterAdded:Connect(function(char)
-                        handleCharacterHide(char)
-                    end)
+                    local conn3 = p.CharacterAdded:Connect(function(char) handleCharacterHide(char) end)
                     table.insert(HidePlayerConnections, conn3)
                 end
             end
@@ -662,9 +690,7 @@ local UI_Toggle_HidePlayers = PlayerTab:CreateToggle({
             clearHideConnections()
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= player and p.Character then
-                    for _, desc in pairs(p.Character:GetDescendants()) do
-                        showObject(desc)
-                    end
+                    for _, desc in pairs(p.Character:GetDescendants()) do showObject(desc) end
                 end
             end
         end
@@ -684,9 +710,7 @@ PlayerTab:CreateButton({
             Lighting.FogEnd = 9e9
             Lighting.Brightness = 1
             for _, v in pairs(Lighting:GetChildren()) do
-                if v:IsA("PostProcessEffect") or v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") then
-                    v.Enabled = false
-                end
+                if v:IsA("PostProcessEffect") or v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") then v.Enabled = false end
             end
             task.spawn(function()
                 for i, v in pairs(workspace:GetDescendants()) do
@@ -811,6 +835,7 @@ ConfigTab:CreateButton({
             Task = selectedTask, Reaction = selectedReaction, TargetInput = targetInput,
             AutoGet = autoGet, Speed = getSpeed, AutoDropAll = autoDropAll,
             DropFixedDefault = dropFixedDefault, DropFixedCustom = dropFixedCustom, DropThreshold = dropThreshold,
+            DropMultiPosition = dropMultiPosition, DropMultiBatchSize = dropMultiBatchSize,
             AutoDestroyTools = autoDestroyTools, DestroyThreshold = destroyThreshold,
             CustomPosX = customX, CustomPosY = customY, CustomPosZ = customZ,
             HitboxEnabled = hitboxEnabled, HitboxSize = currentHitboxSize,
@@ -861,6 +886,10 @@ ConfigTab:CreateButton({
                 if data.DropFixedDefault ~= nil then UI_Toggle_DropDefault:Set(data.DropFixedDefault) end
                 if data.DropFixedCustom ~= nil then UI_Toggle_DropCustom:Set(data.DropFixedCustom) end
                 if data.DropThreshold then UI_Slider_DropThresh:Set(data.DropThreshold) end
+                
+                if data.DropMultiPosition ~= nil then UI_Toggle_MultiDrop:Set(data.DropMultiPosition) end
+                if data.DropMultiBatchSize then UI_Slider_MultiBatch:Set(data.DropMultiBatchSize) end
+
                 if data.CustomPosX then UI_Input_CustomPos:Set(tostring(data.CustomPosX)..", "..tostring(data.CustomPosY)..", "..tostring(data.CustomPosZ)) end
                 if data.AutoDestroyTools ~= nil then UI_Toggle_AutoDestroy:Set(data.AutoDestroyTools) end
                 if data.DestroyThreshold then UI_Slider_DestroyThresh:Set(data.DestroyThreshold) end
@@ -901,7 +930,6 @@ ConfigTab:CreateButton({
 ConfigTab:CreateButton({
     Name = "Refresh List",
     Callback = function() 
-        -- Đã fix thêm delay 3s tại đây
         if cooldownRefreshList then return end
         cooldownRefreshList = true
         task.delay(3, function() cooldownRefreshList = false end)
@@ -985,6 +1013,9 @@ ConfigTab:CreateButton({
                 if hb then hb:Destroy() end
             end
         end
+
+        local cam = Workspace.CurrentCamera
+        if cam then cam.CameraType = Enum.CameraType.Custom end
         
         Rayfield:Destroy() 
     end,
@@ -1004,12 +1035,13 @@ local function performDrop(targetCFrame)
     end
 
     if #tools > 0 then
+        local cam = workspace.CurrentCamera
+        local originalCamCFrame, originalCamType = cam.CFrame, cam.CameraType
+        cam.CameraType = Enum.CameraType.Scriptable 
+        cam.CFrame = originalCamCFrame 
+
         if targetCFrame then
-            local cam = workspace.CurrentCamera
-            local originalCamCFrame, originalCamType = cam.CFrame, cam.CameraType
             local originalCFrame = hrp.CFrame
-            cam.CameraType = Enum.CameraType.Scriptable
-            cam.CFrame = originalCamCFrame
             hrp.CFrame = targetCFrame
             task.wait(0.1) 
             for _, tool in ipairs(tools) do tool.Parent = char end
@@ -1020,7 +1052,6 @@ local function performDrop(targetCFrame)
             end
             task.wait(0.05)
             hrp.CFrame = originalCFrame
-            cam.CameraType = originalCamType
         else
             for _, tool in ipairs(tools) do tool.Parent = char end
             task.wait(0.05)
@@ -1029,6 +1060,8 @@ local function performDrop(targetCFrame)
                 totalDropped = totalDropped + 1
             end
         end
+        
+        cam.CameraType = originalCamType 
         StatsDropLabel:Set("Total Tools Dropped: " .. tostring(totalDropped))
     end
 end
@@ -1072,7 +1105,7 @@ end)
 task.spawn(function()
     while scriptRunning do 
         task.wait(0.5)
-        if autoDropAll then
+        if autoDropAll and not dropMultiPosition then
             local backpack = player:FindFirstChild("Backpack")
             local char = player.Character
             if backpack then
@@ -1093,6 +1126,61 @@ task.spawn(function()
                 end
             end
         end
+    end
+end)
+
+local multiDropCameraLocked = false
+local savedCameraType = Enum.CameraType.Custom
+
+task.spawn(function()
+    while scriptRunning do
+        local cam = Workspace.CurrentCamera
+        if dropMultiPosition and autoDropAll then
+            if not multiDropCameraLocked then
+                savedCameraType = cam.CameraType
+                cam.CameraType = Enum.CameraType.Scriptable
+                multiDropCameraLocked = true
+            else
+                cam.CameraType = Enum.CameraType.Scriptable 
+            end
+
+            local character = player.Character
+            local backpack = player:FindFirstChild("Backpack")
+
+            if character and backpack then
+                local tools = backpack:GetChildren()
+                local toolsToDrop = {}
+
+                for _, item in ipairs(tools) do
+                    if item:IsA("Tool") and item:FindFirstChild("Handle") then
+                        table.insert(toolsToDrop, item)
+                        if #toolsToDrop >= dropMultiBatchSize then break end
+                    end
+                end
+
+                if #toolsToDrop > 0 then
+                    local targetPos = dropCoords[currentCoordIndex]
+                    for _, tool in ipairs(toolsToDrop) do
+                        tool.Parent = character
+                        if tool:FindFirstChild("Handle") then
+                            tool.Handle.CFrame = CFrame.new(targetPos)
+                        end
+                        tool.Parent = Workspace
+                        totalDropped = totalDropped + 1
+                    end
+                    StatsDropLabel:Set("Total Tools Dropped: " .. tostring(totalDropped))
+
+                    currentCoordIndex = currentCoordIndex + 1
+                    if currentCoordIndex > #dropCoords then currentCoordIndex = 1 end
+                end
+            end
+        else
+            if multiDropCameraLocked then
+                cam.CameraType = savedCameraType
+                multiDropCameraLocked = false
+            end
+        end
+        task.wait(0.05)
     end
 end)
 
@@ -1201,6 +1289,10 @@ task.spawn(function()
                     if data.DropFixedDefault ~= nil then UI_Toggle_DropDefault:Set(data.DropFixedDefault) end
                     if data.DropFixedCustom ~= nil then UI_Toggle_DropCustom:Set(data.DropFixedCustom) end
                     if data.DropThreshold then UI_Slider_DropThresh:Set(data.DropThreshold) end
+                    
+                    if data.DropMultiPosition ~= nil then UI_Toggle_MultiDrop:Set(data.DropMultiPosition) end
+                    if data.DropMultiBatchSize then UI_Slider_MultiBatch:Set(data.DropMultiBatchSize) end
+
                     if data.CustomPosX then UI_Input_CustomPos:Set(tostring(data.CustomPosX)..", "..tostring(data.CustomPosY)..", "..tostring(data.CustomPosZ)) end
                     if data.AutoDestroyTools ~= nil then UI_Toggle_AutoDestroy:Set(data.AutoDestroyTools) end
                     if data.DestroyThreshold then UI_Slider_DestroyThresh:Set(data.DestroyThreshold) end
